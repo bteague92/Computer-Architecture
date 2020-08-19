@@ -5,6 +5,7 @@ import sys
 LDI = 0b10000010
 PRN = 0b01000111
 HLT = 0b00000001
+MUL = 0b10100010
 
 
 class CPU:
@@ -16,29 +17,46 @@ class CPU:
         self.reg = [0] * 8
         self.pc = 0
         self.running = True
+        self.branchtable = {}
+        self.branchtable[LDI] = self.handleLDI
+        self.branchtable[PRN] = self.handlePRN
+        self.branchtable[HLT] = self.handleHLT
+        self.branchtable[MUL] = self.handleMUL
 
     def load(self):
         """Load a program into memory."""
 
+        # address = 0
+
+        # # For now, we've just hardcoded a program:
+
+        # program = [
+        #     # From print8.ls8
+        #     0b01000111,  # PRN R0
+        #     0b00000000,
+        #     0b10000010,  # LDI R0,8
+        #     0b00000000,
+        #     0b00001000,
+        #     0b01000111,  # PRN R0
+        #     0b00000000,
+        #     0b00000001,  # HLT
+        # ]
+
+        # for instruction in program:
+        #     self.ram[address] = instruction
+        #     address += 1
+
         address = 0
+        filename = sys.argv[1]
 
-        # For now, we've just hardcoded a program:
+        with open(filename) as f:
+            for line in f:
+                line = line.split('#')
+                if line[0] == '' or line[0] == '\n':
+                    continue
 
-        program = [
-            # From print8.ls8
-            0b01000111,  # PRN R0
-            0b00000000,
-            0b10000010,  # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111,  # PRN R0
-            0b00000000,
-            0b00000001,  # HLT
-        ]
-
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
+                self.ram[address] = int(line[0], 2)
+                address += 1
 
     def ram_read(self, i):
         return self.ram[i]
@@ -75,26 +93,55 @@ class CPU:
 
         print()
 
+    def handleHLT(self, a=None, b=None):
+        # exit
+        self.running = False
+
+    def handleLDI(self, a, b):
+        # set specified register to specified value
+        self.reg[a] = b
+        self.pc += 3
+
+    def handlePRN(self, a, b=None):
+        # print value from specified register
+        print(self.reg[a])
+        self.pc += 2
+
+    def handleMUL(self, a, b):
+        self.reg[a] = self.reg[a] * self.reg[b]
+        self.pc += 3
+
     def run(self):
         """Run the CPU."""
 
         while self.running:
-            # instruction register, read memory address stored in register
+            # # instruction register, read memory address stored in register
+            # IR = self.ram_read(self.pc)
+            # a = self.ram_read(self.pc + 1)
+            # b = self.ram_read(self.pc + 2)
+
+            # if IR == HLT:
+            #     # exit
+            #     self.running = False
+            # elif IR == LDI:
+            #     # set specified register to specified value
+            #     self.reg[a] = [b]
+            #     self.pc += 3
+            # elif IR == PRN:
+            #     # print value from specified register
+            #     print(self.reg[a])
+            #     self.pc += 2
+            # else:
+            #     print(f'Unknown: {IR} at {self.pc}')
+            #     self.running = False
+
             IR = self.ram_read(self.pc)
+
             a = self.ram_read(self.pc + 1)
             b = self.ram_read(self.pc + 2)
 
-            if IR == HLT:
-                # exit
-                self.running = False
-            elif IR == LDI:
-                # set specified register to specified value
-                self.reg[a] = [b]
-                self.pc += 3
-            elif IR == PRN:
-                # print value from specified register
-                print(self.reg[a])
-                self.pc += 2
-            else:
+            if IR not in self.branchtable:
                 print(f'Unknown: {IR} at {self.pc}')
-                self.running = False
+            else:
+                f = self.branchtable[IR]
+                f(a, b)
