@@ -6,6 +6,8 @@ LDI = 0b10000010
 PRN = 0b01000111
 HLT = 0b00000001
 MUL = 0b10100010
+PUSH = 0b01000101
+POP = 0b01000110
 
 
 class CPU:
@@ -22,6 +24,10 @@ class CPU:
         self.branchtable[PRN] = self.handlePRN
         self.branchtable[HLT] = self.handleHLT
         self.branchtable[MUL] = self.handleMUL
+        self.branchtable[PUSH] = self.handlePUSH
+        self.branchtable[POP] = self.handlePOP
+        self.stack_pointer = 0xf4
+        self.reg[7] = self.stack_pointer
 
     def load(self):
         """Load a program into memory."""
@@ -111,6 +117,34 @@ class CPU:
         self.reg[a] = self.reg[a] * self.reg[b]
         self.pc += 3
 
+    def handlePUSH(self, a, b=None):
+        # decrement stack pointer
+        self.stack_pointer -= 1
+        self.stack_pointer &= 0xff  # keep in range of 00-FF
+
+        # get register number and value stored at specified reg number
+        reg_num = self.ram[self.pc + 1]
+        val = self.reg[reg_num]
+
+        # store value in ram
+        self.ram[self.stack_pointer] = val
+        self.pc += 2
+
+    def handlePOP(self, a, b=None):
+        # get value from ram
+        address = self.stack_pointer
+        val = self.ram[address]
+
+        # store at given register
+        reg_num = self.ram[self.pc + 1]
+        self.reg[reg_num] = val
+
+        # increment stack pointer and program counter
+        self.stack_pointer += 1
+        self.stack_pointer &= 0xff  # keep in range of 00-FF
+
+        self.pc += 2
+
     def run(self):
         """Run the CPU."""
 
@@ -142,6 +176,7 @@ class CPU:
 
             if IR not in self.branchtable:
                 print(f'Unknown: {IR} at {self.pc}')
+                self.running = False
             else:
                 f = self.branchtable[IR]
                 f(a, b)
